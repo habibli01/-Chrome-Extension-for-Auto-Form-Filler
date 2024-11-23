@@ -24,15 +24,17 @@
   
       // Getting name
       const nameElement = document.querySelector('h1');
-      const name = nameElement ? nameElement.textContent.trim() : "Name not found";
-  
+      const full = nameElement ? nameElement.innerText.split(" ") : "Name not found";
+      const name = full[0];
+      const surname = full.length > 1 ? full[1] : "";
+
       // Getting summary
       const summaryElement = document.querySelector('div.text-body-medium.break-words[data-generated-suggestion-target]'); // from the className of title in Linkedin
       const summary = summaryElement ? summaryElement.textContent.trim() : "Summary not found";
       
-      console.log("Scraped LinkedIn Data:", { name, summary });
+      console.log("Scraped LinkedIn Data:", { name, surname, summary });
   
-      return { name, summary };
+      return { name, surname, summary };
     }
   })();
   
