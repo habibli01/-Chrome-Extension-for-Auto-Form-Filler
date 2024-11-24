@@ -10,9 +10,24 @@
 
   <form id="data-form">
     <label for="linkedin-url">LinkedIn Profile URL:</label>
-    <input type="url" id="linkedin-url" name="linkedin-url" placeholder="https://www.linkedin.com/in/username">
+    <input type="url" id="linkedin-url" name="linkedin-url"  value ="https://www.linkedin.com/in/" >
     <button type="button" id="fetch-data">Fetch Data</button><br><br>
 
+    <div>
+      <label for="profileSelector">Select Profile:</label>
+      <select id="profileSelector"></select>
+      <button id="createProfileButton">Create Profile</button>
+      <button id="deleteProfileButton">Delete Profile</button>
+    </div>
+    <div id="customFieldsContainer"></div>
+
+    <div>
+      <label for="fieldName">Field Name:</label>
+      <input id="fieldName" type="text">
+      <label for="fieldValue">Field Value:</label>
+      <input id="fieldValue" type="text">
+      <button id="addFieldButton">Add Field</button>
+    </div>    
     <label for="name">Name:</label>
     <input type="text" id="name" name="name"><br>
 

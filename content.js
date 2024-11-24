@@ -29,8 +29,9 @@
       const surname = full.length > 1 ? full[1] : "";
 
       // Getting summary
-      const summaryElement = document.querySelector('div.text-body-medium.break-words[data-generated-suggestion-target]'); // from the className of title in Linkedin
-      const summary = summaryElement ? summaryElement.textContent.trim() : "Summary not found";
+      const summaryElement = document.querySelector('div.text-body-medium.break-words[data-generated-suggestion-target]');// from the className of title in Linkedin
+      const alternativeSummary =  document.querySelector('.top-card-layout__headline'); //if user is not logged in to linkedin and want get account's data
+      const summary = summaryElement ? summaryElement.textContent.trim() : alternativeSummary.textContent.trim();
       
       console.log("Scraped LinkedIn Data:", { name, surname, summary });
   
