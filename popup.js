@@ -9,14 +9,18 @@ const fieldValueInput = document.getElementById("fieldValue");
 const fetchDataButton = document.getElementById("fetch-data");
 const saveButton = document.getElementById("save-button");
 const linkedinUrlInput = document.getElementById("linkedin-url");
+const exportDataButton = document.getElementById("exportDataButton");
+const importDataButton = document.getElementById("importDataButton");
+const importFileInput = document.getElementById("importFileInput");
 
 document.addEventListener("DOMContentLoaded", () => {
     loadProfiles();
-    loadLinkedinProfileUrl();
+    
 });
 
 
 function loadProfiles() {
+    
     chrome.storage.local.get(["profiles", "activeProfile"], (data) => {
         const profiles = data.profiles || {};
         const activeProfile = data.activeProfile || null;
@@ -62,14 +66,15 @@ function displayField(name, value) {
     fieldDiv.className = "field";
     fieldDiv.innerHTML = `
         <strong>${name}</strong>: <span>${value}</span>
-        <button class="editField">Edit</button>
-        <button class="deleteField">Delete</button>
+        <button type="button" class="editField">Edit</button>
+        <button type="button" class="deleteField">Delete</button>
     `;
     customFieldsContainer.appendChild(fieldDiv);
 
     fieldDiv.querySelector(".editField").addEventListener("click", () => editField(name, value));
     fieldDiv.querySelector(".deleteField").addEventListener("click", () => deleteField(name));
 }
+
 
 // Creating new profile
 createProfileButton.addEventListener("click", () => {
@@ -181,7 +186,57 @@ saveButton.addEventListener("click", () => {
       });
   });
 });
+importDataButton.addEventListener("click", () => {
+ 
+    importFileInput.click();
+});
+importFileInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+        alert("No file selected.");
+        return;
+    }
+   
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+       
+            chrome.storage.local.set(importedData, () => {
+                if (chrome.runtime.lastError) {
+                    console.error("Storage set error:", chrome.runtime.lastError);
+                    alert("Error saving data to storage.");
+                    return;
+                }
+                loadProfiles();
+                alert("Data imported successfully!");
+            });
+        } catch (error) {
+            alert("Error parsing JSON file.");
+        }
+    };
+    reader.onerror = function(e) {
+        alert("Error reading file.");
+    };
+    reader.readAsText(file);
+});
 
+exportDataButton.addEventListener("click", () => {
+    chrome.storage.local.get(["profiles", "activeProfile"], (data) => {
+        const jsonData = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        // Creating temporary anchor element to start the download
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "profiles_data.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+});
 
 // Fetching LinkedIn data
 fetchDataButton.addEventListener("click", () => {
