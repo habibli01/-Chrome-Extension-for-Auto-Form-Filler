@@ -3,7 +3,7 @@
     "name": "Auto Form Filler",
     "version": "1.0",
     "description": "An intelligent auto form filler that extracts and customizes data from LinkedIn.",
-    "permissions": ["storage", "tabs", "scripting"],
+    "permissions": ["storage", "tabs", "scripting", "activeTab"],
     "host_permissions": ["https://www.linkedin.com/*"],
     "action": {
       "default_popup": "popup.html"

@@ -12,10 +12,17 @@ const linkedinUrlInput = document.getElementById("linkedin-url");
 const exportDataButton = document.getElementById("exportDataButton");
 const importDataButton = document.getElementById("importDataButton");
 const importFileInput = document.getElementById("importFileInput");
+const mappingInterface = document.getElementById('mappingInterface');
+const mappingContainer = document.getElementById('mappingContainer');
+const saveMappingButton = document.getElementById('saveMappingButton');
+const mapFieldsButton = document.getElementById('mapFieldsButton');
+const autofillButton = document.getElementById('autofillButton');
 
 document.addEventListener("DOMContentLoaded", () => {
     loadProfiles();
-    
+    mapFieldsButton.addEventListener('click', initiateFieldMapping);
+    saveMappingButton.addEventListener('click', saveFieldMappings);
+    autofillButton.addEventListener('click', injectAutofillScript);
 });
 
 
@@ -45,7 +52,113 @@ function loadProfiles() {
         }
     });
 }
+function initiateFieldMapping() {
+    injectContentScript(() => {
+        // Content script will send a message with form fields
+    });
+}
+function injectContentScript(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: activeTab.id },
+                files: ['contentScript.js']
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(chrome.runtime.lastError.message);
+                } else {
+                   
+                    callback();
+                }
+            }
+        );
+    });
+}
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'formFields') {
+        const formFields = message.fields;
+        displayMappingInterface(formFields);
+    }
+});
 
+function displayMappingInterface(formFields) {
+    mappingContainer.innerHTML = ''; 
+
+   
+    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+        const profiles = data.profiles || {};
+        const activeProfile = data.activeProfile;
+        const profileFields = profiles[activeProfile] ? Object.keys(profiles[activeProfile]) : [];
+
+        formFields.forEach((formField) => {
+            const div = document.createElement('div');
+            div.className = 'mapping-item';
+
+            const label = document.createElement('label');
+            label.textContent = `Form Field: ${formField}`;
+
+            const select = document.createElement('select');
+            select.name = formField;
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Do not map';
+            select.appendChild(defaultOption);
+
+            profileFields.forEach((profileField) => {
+                const option = document.createElement('option');
+                option.value = profileField;
+                option.textContent = profileField;
+                select.appendChild(option);
+            });
+
+            div.appendChild(label);
+            div.appendChild(select);
+            mappingContainer.appendChild(div);
+        });
+
+        mappingInterface.style.display = 'block';
+    });
+}
+
+function saveFieldMappings() {
+    const selects = mappingContainer.querySelectorAll('select');
+    const mappings = {};
+
+    selects.forEach((select) => {
+        const formField = select.name;
+        const profileField = select.value;
+        if (profileField) {
+            mappings[formField] = profileField;
+        }
+    });
+
+    chrome.storage.local.set({ formFieldMappings: mappings }, () => {
+        alert('Mappings saved successfully!');
+        mappingInterface.style.display = 'none';
+    });
+}
+
+function injectAutofillScript() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs[0];
+        chrome.scripting.executeScript(
+            {
+                target: { tabId: activeTab.id },
+                files: ['autofillScript.js']
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(chrome.runtime.lastError.message);
+                } else {
+                    alert('Form autofilled successfully!');
+                }
+            }
+        );
+    });
+}
 function loadCustomFields(fields) {
   customFieldsContainer.innerHTML = "";
   for (const [name, value] of Object.entries(fields)) {
