@@ -17,12 +17,19 @@ const mappingContainer = document.getElementById('mappingContainer');
 const saveMappingButton = document.getElementById('saveMappingButton');
 const mapFieldsButton = document.getElementById('mapFieldsButton');
 const autofillButton = document.getElementById('autofillButton');
+const sendEmailButton = document.getElementById('sendEmailButton');
+
 
 document.addEventListener("DOMContentLoaded", () => {
     loadProfiles();
-    mapFieldsButton.addEventListener('click', initiateFieldMapping);
+    mapFieldsButton.addEventListener('click', () => {
+        const autoModeCheckbox = document.getElementById('autoModeCheckbox');
+        const autoMode = autoModeCheckbox.checked;
+        initiateFieldMapping(autoMode);
+    });
     saveMappingButton.addEventListener('click', saveFieldMappings);
     autofillButton.addEventListener('click', injectAutofillScript);
+    sendEmailButton.addEventListener('click', sendDataViaEmail);
 });
 
 
@@ -52,12 +59,32 @@ function loadProfiles() {
         }
     });
 }
-function initiateFieldMapping() {
-    injectContentScript(() => {
-        // Content script will send a message with form fields
+function saveFieldMappings() {
+    const selects = mappingContainer.querySelectorAll('select');
+    const mappings = {};
+
+    selects.forEach((select) => {
+        const formField = select.name;
+        const profileField = select.value;
+        if (profileField) {
+            mappings[formField] = profileField;
+        }
+    });
+
+    chrome.storage.local.set({ formFieldMappings: mappings }, () => {
+        alert('Mappings saved successfully!');
+        mappingInterface.style.display = 'none';
     });
 }
+
+function initiateFieldMapping(autoMode) {
+    injectContentScript(() => {
+        
+    });
+}
+
 function injectContentScript(callback) {
+    console.log("injectContentScript called.");
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
         chrome.scripting.executeScript(
@@ -77,30 +104,40 @@ function injectContentScript(callback) {
     });
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === 'formFields') {
+    if (message.action === 'formFieldsData') {
         const formFields = message.fields;
-        displayMappingInterface(formFields);
+        const autoModeCheckbox = document.getElementById('autoModeCheckbox');
+        const autoMode = autoModeCheckbox.checked;
+        displayMappingInterface(formFields, autoMode);
     }
 });
-
-function displayMappingInterface(formFields) {
+function displayMappingInterface(formFields, autoMode = false) {
     mappingContainer.innerHTML = ''; 
-
-   
-    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+    chrome.storage.local.get(['profiles', 'activeProfile', 'formFieldMappings'], (data) => {
         const profiles = data.profiles || {};
         const activeProfile = data.activeProfile;
         const profileFields = profiles[activeProfile] ? Object.keys(profiles[activeProfile]) : [];
+        const savedMappings = data.formFieldMappings || {};
 
-        formFields.forEach((formField) => {
+        let mappings = {};
+
+        if (autoMode) {
+            mappings = autoMapFields(formFields, profileFields);
+        } else {
+            mappings = savedMappings;
+        }
+
+        formFields.forEach((field) => {
             const div = document.createElement('div');
             div.className = 'mapping-item';
 
             const label = document.createElement('label');
-            label.textContent = `Form Field: ${formField}`;
+            const fieldLabel = field.label || field.name || 'Unknown';
+            label.textContent = `Form Field: ${fieldLabel}`;
 
             const select = document.createElement('select');
-            select.name = formField;
+            const uniqueKey = field.name ||field.label ;
+            select.name = uniqueKey;
 
             const defaultOption = document.createElement('option');
             defaultOption.value = '';
@@ -111,6 +148,11 @@ function displayMappingInterface(formFields) {
                 const option = document.createElement('option');
                 option.value = profileField;
                 option.textContent = profileField;
+
+                if (mappings[uniqueKey] === profileField) {
+                    option.selected = true;
+                }
+
                 select.appendChild(option);
             });
 
@@ -123,23 +165,6 @@ function displayMappingInterface(formFields) {
     });
 }
 
-function saveFieldMappings() {
-    const selects = mappingContainer.querySelectorAll('select');
-    const mappings = {};
-
-    selects.forEach((select) => {
-        const formField = select.name;
-        const profileField = select.value;
-        if (profileField) {
-            mappings[formField] = profileField;
-        }
-    });
-
-    chrome.storage.local.set({ formFieldMappings: mappings }, () => {
-        alert('Mappings saved successfully!');
-        mappingInterface.style.display = 'none';
-    });
-}
 
 function injectAutofillScript() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -172,6 +197,14 @@ function loadCustomFields(fields) {
   document.getElementById("summary").value = fields["Summary"] || "";
 }
 
+function computeSimilarity(str1, str2) {
+    
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
+    const intersection = words1.filter(value => words2.includes(value));
+    const union = [...new Set([...words1, ...words2])];
+    return intersection.length / union.length;
+}
 
 // Display a single custom field in the UI
 function displayField(name, value) {
@@ -187,6 +220,7 @@ function displayField(name, value) {
     fieldDiv.querySelector(".editField").addEventListener("click", () => editField(name, value));
     fieldDiv.querySelector(".deleteField").addEventListener("click", () => deleteField(name));
 }
+
 
 
 // Creating new profile
@@ -299,7 +333,7 @@ saveButton.addEventListener("click", () => {
       });
   });
 });
-importDataButton.addEventListener("click", () => {
+importDataButton.addEventListener("click", () => {  
  
     importFileInput.click();
 });
@@ -350,7 +384,31 @@ exportDataButton.addEventListener("click", () => {
         URL.revokeObjectURL(url);
     });
 });
+function sendDataViaEmail() {
+    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+        const profiles = data.profiles || {};
+        const activeProfile = data.activeProfile;
+        const profileData = profiles[activeProfile] || {};
 
+        if (!activeProfile || Object.keys(profileData).length === 0) {
+            alert('No profile data available to send.');
+            return;
+        }
+
+        const subject = encodeURIComponent(`Profile Data: ${activeProfile}`);
+        let body = `Here is the profile data for "${activeProfile}":\n\n`;
+
+        for (const [key, value] of Object.entries(profileData)) {
+            body += `${key}: ${value}\n`;
+        }
+
+        body = encodeURIComponent(body);
+
+        const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+
+        window.open(mailtoLink, '_blank');
+    });
+}
 // Fetching LinkedIn data
 fetchDataButton.addEventListener("click", () => {
     const linkedinUrl = linkedinUrlInput.value;
@@ -390,6 +448,63 @@ fetchDataButton.addEventListener("click", () => {
         );
     });
 });
+function autoMapFields(formFields, profileFields) {
+    const mappings = {};
+    const synonyms = {
+        'name': ['first name', 'given name', 'forename'],
+        'surname': ['last name', 'family name', 'surname'],
+        'summary': ['about', 'bio', 'biography'],
+        'job title': ['position', 'title'],
+        'age': ['birthday', 'birth date', 'date of birth'],
+        // Add more synonyms as needed
+    };
+
+    formFields.forEach((field) => {
+        const candidates = [];
+
+        // Combine all available attributes into one string for comparison
+        const fieldAttributes = `${field.name} ${field.id} ${field.placeholder} ${field.label} ${field.ariaLabel} ${field.surroundingText}`.toLowerCase();
+
+        profileFields.forEach((profileField) => {
+            const profileFieldName = profileField.toLowerCase();
+            const profileFieldSynonyms = synonyms[profileFieldName] || [];
+            const comparisonStrings = [profileFieldName, ...profileFieldSynonyms];
+
+            // Check for exact matches or synonyms
+            let maxScore = 0;
+            comparisonStrings.forEach(compStr => {
+                if (fieldAttributes.includes(compStr)) {
+                    maxScore = 1; // Highest priority
+                } else {
+                    const score = computeSimilarity(fieldAttributes, compStr);
+                    if (score > maxScore) {
+                        maxScore = score;
+                    }
+                }
+            });
+
+            if (maxScore >= 0.8) { // Adjust threshold as needed
+                candidates.push({
+                    profileField: profileField,
+                    score: maxScore
+                });
+            }
+        });
+
+        // Select the best candidate
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => b.score - a.score);
+            const uniqueKey = field.name || field.id || field.label || field.placeholder || field.ariaLabel || field.surroundingText;
+            if (uniqueKey) {
+                mappings[uniqueKey] = candidates[0].profileField;
+            }
+        }
+    });
+
+    return mappings;
+}
+
+
 
 profileSelector.addEventListener("change", () => {
     const selectedProfile = profileSelector.value;

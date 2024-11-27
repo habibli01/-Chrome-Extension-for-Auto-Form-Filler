@@ -38,18 +38,24 @@
     <label for="summary">Summary:</label>
     <textarea id="summary" name="summary"></textarea><br>
     <div id="mappingInterface" style="display: none;">
+      
       <h3>Map Profile Fields to Form Fields</h3>
       <div id="mappingContainer">
           <!-- Dynamic content will be added here -->
       </div>
-      <button id="saveMappingButton">Save Mapping</button>
+      <button type="button" id="saveMappingButton">Save Mapping</button>
     </div>
-
-    <button type="button" id="save-button">Save</button>
-    <button type = "button" id="mapFieldsButton">Map Fields</button>
-    <button type = "button" id="autofillButton">Autofill Form</button>
-    <button type = "button" id="exportDataButton">Export Data</button>
-    <button type = "button" id="importDataButton">Import Data</button>
+    <label>
+      <input type="checkbox" id="autoModeCheckbox">
+      Enable Auto Mapping
+      </label>
+  
+    <button type ="button" id="save-button">Save</button>
+    <button type ="button" id="mapFieldsButton">Map Fields</button>
+    <button type ="button" id="autofillButton">Autofill Form</button>
+    <button type ="button" id="exportDataButton">Export Data</button>
+    <button type ="button" id="importDataButton">Import Data</button>
+    <button type ="button" id="sendEmailButton">Send Data via Email</button>
     <input type="file" id="importFileInput" accept=".json" style="display: none;">
   
   </form>
