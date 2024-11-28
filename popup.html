@@ -4,61 +4,83 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Auto Form Filler</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-  <h1>Form Data Customizer</h1>
+<body style="width: 700px; height: auto;" class="container my-5">
+
+  <h1 class="text-center mb-4">Form Data Customizer</h1>
 
   <form id="data-form">
-    <label for="linkedin-url">LinkedIn Profile URL:</label>
-    <input type="url" id="linkedin-url" name="linkedin-url"  value ="https://www.linkedin.com/in/" >
-    <button type="button" id="fetch-data">Fetch Data</button><br><br>
-
-    <div>
-      <label for="profileSelector">Select Profile:</label>
-      <select id="profileSelector"></select>
-      <button id="createProfileButton">Create Profile</button>
-      <button id="deleteProfileButton">Delete Profile</button>
-    </div>
-    <div id="customFieldsContainer"></div>
-
-    <div>
-      <label for="fieldName">Field Name:</label>
-      <input id="fieldName" type="text">
-      <label for="fieldValue">Field Value:</label>
-      <input id="fieldValue" type="text">
-      <button id="addFieldButton">Add Field</button>
-    </div>    
-    <label for="name">Name:</label>
-    <input type="text" id="name" name="name"><br>
-
-    <label for="surname">Surname:</label>
-    <input type="text" id="surname" name="surname"><br>
-
-
-    <label for="summary">Summary:</label>
-    <textarea id="summary" name="summary"></textarea><br>
-    <div id="mappingInterface" style="display: none;">
-      
-      <h3>Map Profile Fields to Form Fields</h3>
-      <div id="mappingContainer">
-          <!-- Dynamic content will be added here -->
+    <div class="mb-3">
+      <label for="linkedin-url" class="form-label">LinkedIn Profile URL:</label>
+      <div class="input-group">
+        <input type="url" id="linkedin-url" name="linkedin-url" class="form-control" value="https://www.linkedin.com/in/">
+        <button type="button" id="fetch-data" class="btn btn-primary">Fetch Data</button>
       </div>
-      <button type="button" id="saveMappingButton">Save Mapping</button>
     </div>
-    <label>
-      <input type="checkbox" id="autoModeCheckbox">
-      Enable Auto Mapping
-      </label>
-  
-    <button type ="button" id="save-button">Save</button>
-    <button type ="button" id="mapFieldsButton">Map Fields</button>
-    <button type ="button" id="autofillButton">Autofill Form</button>
-    <button type ="button" id="exportDataButton">Export Data</button>
-    <button type ="button" id="importDataButton">Import Data</button>
-    <button type ="button" id="sendEmailButton">Send Data via Email</button>
+
+    <div class="mb-3">
+      <label for="profileSelector" class="form-label">Select Profile:</label>
+      <div class="input-group">
+        <select id="profileSelector" class="form-select"></select>
+        <button type="button" id="createProfileButton" class="btn btn-success ms-2">Create Profile</button>
+        <button type="button" id="deleteProfileButton" class="btn btn-danger ms-2">Delete Profile</button>
+      </div>
+    </div>
+
+    <div id="customFieldsContainer" class="mb-4"></div>
+
+    <div class="mb-3">
+      <label for="fieldName" class="form-label">Field Name:</label>
+      <input id="fieldName" type="text" class="form-control mb-2">
+      <label for="fieldValue" class="form-label">Field Value:</label>
+      <input id="fieldValue" type="text" class="form-control mb-2">
+      <button type="button" id="addFieldButton" class="btn btn-secondary">Add Field</button>
+    </div>
+
+    <div class="mb-3">
+      <label for="name" class="form-label">Name:</label>
+      <input type="text" id="name" name="name" class="form-control">
+    </div>
+    <div class="mb-3">
+      <label for="surname" class="form-label">Surname:</label>
+      <input type="text" id="surname" name="surname" class="form-control">
+    </div>
+    <div class="mb-3">
+      <label for="summary" class="form-label">Summary:</label>
+      <textarea id="summary" name="summary" class="form-control"></textarea>
+    </div>
+    <button type="button" id="save-button" class="btn btn-success mb-3">Save</button>
+    <br><br><br>
+    <button type="button" id="saveFormDataButton" class="btn btn-primary">Save Current Form Data</button>
+
+    <h3>Saved Forms</h3>
+    <div id="savedFormsContainer" class="mb-4"></div>
+
+    <div id="mappingInterface" style="display: none;" class="mb-4">
+      <h3>Map Profile Fields to Form Fields</h3>
+      <div id="mappingContainer" class="mb-3"></div>
+      
+      <button type="button" id="saveMappingButton" class="btn btn-primary">Save Mapping</button>
+    </div>
+
+    <div class="form-check mb-3">
+      <input type="checkbox" id="autoModeCheckbox" class="form-check-input">
+      <label for="autoModeCheckbox" class="form-check-label">Enable Auto Mapping</label>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      
+      <button type="button" id="mapFieldsButton" class="btn btn-secondary">Map Fields</button>
+      <button type="button" id="autofillButton" class="btn btn-success">Autofill Form</button>
+      <button type="button" id="exportDataButton" class="btn btn-warning">Export Data</button>
+      <button type="button" id="importDataButton" class="btn btn-info">Import Data</button>
+      <button type="button" id="sendEmailButton" class="btn btn-danger">Send Data via Email</button>
+    </div>
+
     <input type="file" id="importFileInput" accept=".json" style="display: none;">
-  
   </form>
+
+  <script src="popup.js"></script>
 </body>
-<script src="popup.js"></script>
 </html>

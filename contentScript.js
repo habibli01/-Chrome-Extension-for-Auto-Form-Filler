@@ -1,10 +1,13 @@
 (function() {
-    const inputs = document.querySelectorAll('input, textarea, select');
-    const fields = new Map(); 
     if (window.hasRunContentScript) {
         console.log("contentScript.js already ran.");
         return;
     }
+    window.hasRunContentScript = true;
+
+    const inputs = document.querySelectorAll('input, textarea, select');
+    const fields = new Map();
+
     inputs.forEach((input) => {
         const fieldData = {
             name: input.name || '',
@@ -16,7 +19,7 @@
             type: input.type || ''
         };
 
-        let labelText = '';
+       let labelText = '';
         if (input.id) {
             const label = document.querySelector(`label[for="${input.id}"]`);
             if (label) {
@@ -62,5 +65,42 @@
 
     console.log('Collected form fields:', fieldArray);
 
-     chrome.runtime.sendMessage({ action: 'formFieldsData', fields: fieldArray });
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === 'collectFormData') {
+            const formData = collectCurrentFormData();
+            sendResponse({ status: 'success', data: formData });
+        } else if (message.action === 'restoreFormData') {
+            const formData = message.data;
+            restoreFormFields(formData);
+            sendResponse({ status: 'success' });
+        }
+    });
+
+    function collectCurrentFormData() {
+        const inputs = document.querySelectorAll('input, textarea, select');
+        const formData = {};
+
+        inputs.forEach((input) => {
+            const nameOrId = input.name || input.id;
+            if (nameOrId) {
+                formData[nameOrId] = input.value;
+            }
+        });
+
+        return formData;
+    }
+
+    function restoreFormFields(formData) {
+        for (const [key, value] of Object.entries(formData)) {
+            const input = document.querySelector(`[name="${key}"], [id="${key}"]`);
+            if (input) {
+                input.value = value;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+    }
+
+    chrome.runtime.sendMessage({ action: 'formFieldsData', fields: fieldArray });
+
 })();

@@ -18,6 +18,8 @@ const saveMappingButton = document.getElementById('saveMappingButton');
 const mapFieldsButton = document.getElementById('mapFieldsButton');
 const autofillButton = document.getElementById('autofillButton');
 const sendEmailButton = document.getElementById('sendEmailButton');
+const saveFormDataButton = document.getElementById('saveFormDataButton');
+const savedFormsContainer = document.getElementById('savedFormsContainer');
 
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -30,6 +32,10 @@ document.addEventListener("DOMContentLoaded", () => {
     saveMappingButton.addEventListener('click', saveFieldMappings);
     autofillButton.addEventListener('click', injectAutofillScript);
     sendEmailButton.addEventListener('click', sendDataViaEmail);
+
+    saveFormDataButton.addEventListener('click', saveCurrentFormData);
+
+    loadSavedForms();
 });
 
 
@@ -76,15 +82,122 @@ function saveFieldMappings() {
         mappingInterface.style.display = 'none';
     });
 }
+function restoreFormData(formData) {
+    injectContentScript(() => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'restoreFormData', data: formData }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error(chrome.runtime.lastError.message);
+                    alert("Failed to restore form data.");
+                    return;
+                }
+
+                if (response && response.status === 'success') {
+                    alert("Form data restored successfully!");
+                } else {
+                    alert("Failed to restore form data.");
+                }
+            });
+        });
+    });
+}
+
+function deleteSavedForm(formName) {
+    if (!confirm(`Are you sure you want to delete the saved form "${formName}"?`)) {
+        return;
+    }
+
+    chrome.storage.local.get('savedForms', (data) => {
+        const savedForms = data.savedForms || {};
+        delete savedForms[formName];
+        chrome.storage.local.set({ savedForms }, () => {
+            alert("Saved form deleted.");
+            loadSavedForms();
+        });
+    });
+}
+
+function loadSavedForms() {
+    savedFormsContainer.innerHTML = ''; 
+
+    chrome.storage.local.get('savedForms', (data) => {
+        const savedForms = data.savedForms || {};
+
+        if (Object.keys(savedForms).length === 0) {
+            savedFormsContainer.textContent = "No saved forms.";
+            return;
+        }
+
+        for (const [formName, formData] of Object.entries(savedForms)) {
+            const formDiv = document.createElement('div');
+            formDiv.className = 'saved-form-item';
+
+            const label = document.createElement('span');
+            label.textContent = formName;
+
+            const restoreButton = document.createElement('button');
+            restoreButton.textContent = 'Restore';
+            restoreButton.setAttribute('type', 'button');
+            restoreButton.addEventListener('click', () => {
+                restoreFormData(formData);
+            });
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.setAttribute('type', 'button');
+            deleteButton.addEventListener('click', () => {
+                deleteSavedForm(formName);
+            });
+
+            formDiv.appendChild(label);
+            formDiv.appendChild(restoreButton);
+            formDiv.appendChild(deleteButton);
+            savedFormsContainer.appendChild(formDiv);
+        }
+    });
+}
+
+function saveCurrentFormData() {
+    const formName = prompt("Enter a name for this form data:");
+    if (!formName) {
+        alert("Form data not saved. Name is required.");
+        return;
+    }
+
+    injectContentScript(() => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'collectFormData' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error(chrome.runtime.lastError.message);
+                    alert("Failed to collect form data.");
+                    return;
+                }
+
+                if (response && response.status === 'success') {
+                    const formData = response.data;
+                    chrome.storage.local.get('savedForms', (data) => {
+                        const savedForms = data.savedForms || {};
+                        savedForms[formName] = formData;
+                        chrome.storage.local.set({ savedForms }, () => {
+                            alert("Form data saved successfully!");
+                            loadSavedForms(); 
+                        });
+                    });
+                } else {
+                    alert("Failed to collect data.");
+                }
+            });
+        });
+    });
+}
 
 function initiateFieldMapping(autoMode) {
     injectContentScript(() => {
-        
+
     });
 }
 
 function injectContentScript(callback) {
-    console.log("injectContentScript called.");
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
         chrome.scripting.executeScript(
@@ -95,14 +208,15 @@ function injectContentScript(callback) {
             () => {
                 if (chrome.runtime.lastError) {
                     console.error(chrome.runtime.lastError.message);
+                    alert('Failed to inject content script.');
                 } else {
-                   
-                    callback();
+                   callback();
                 }
             }
         );
     });
 }
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'formFieldsData') {
         const formFields = message.fields;
@@ -206,7 +320,6 @@ function computeSimilarity(str1, str2) {
     return intersection.length / union.length;
 }
 
-// Display a single custom field in the UI
 function displayField(name, value) {
     const fieldDiv = document.createElement("div");
     fieldDiv.className = "field";
@@ -456,13 +569,12 @@ function autoMapFields(formFields, profileFields) {
         'summary': ['about', 'bio', 'biography'],
         'job title': ['position', 'title'],
         'age': ['birthday', 'birth date', 'date of birth'],
-        // Add more synonyms as needed
+        
     };
 
     formFields.forEach((field) => {
         const candidates = [];
 
-        // Combine all available attributes into one string for comparison
         const fieldAttributes = `${field.name} ${field.id} ${field.placeholder} ${field.label} ${field.ariaLabel} ${field.surroundingText}`.toLowerCase();
 
         profileFields.forEach((profileField) => {
@@ -470,11 +582,10 @@ function autoMapFields(formFields, profileFields) {
             const profileFieldSynonyms = synonyms[profileFieldName] || [];
             const comparisonStrings = [profileFieldName, ...profileFieldSynonyms];
 
-            // Check for exact matches or synonyms
             let maxScore = 0;
             comparisonStrings.forEach(compStr => {
                 if (fieldAttributes.includes(compStr)) {
-                    maxScore = 1; // Highest priority
+                    maxScore = 1; 
                 } else {
                     const score = computeSimilarity(fieldAttributes, compStr);
                     if (score > maxScore) {
@@ -483,7 +594,7 @@ function autoMapFields(formFields, profileFields) {
                 }
             });
 
-            if (maxScore >= 0.8) { // Adjust threshold as needed
+            if (maxScore >= 0.8) {
                 candidates.push({
                     profileField: profileField,
                     score: maxScore
@@ -491,7 +602,6 @@ function autoMapFields(formFields, profileFields) {
             }
         });
 
-        // Select the best candidate
         if (candidates.length > 0) {
             candidates.sort((a, b) => b.score - a.score);
             const uniqueKey = field.name || field.id || field.label || field.placeholder || field.ariaLabel || field.surroundingText;
