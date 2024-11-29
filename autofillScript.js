@@ -1,5 +1,4 @@
 (function() {
-    // Get mappings and profile data from storage
     chrome.storage.local.get(['formFieldMappings', 'profiles', 'activeProfile'], (data) => {
         const mappings = data.formFieldMappings || {};
         const profiles = data.profiles || {};

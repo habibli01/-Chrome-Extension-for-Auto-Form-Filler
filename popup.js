@@ -20,7 +20,7 @@ const autofillButton = document.getElementById('autofillButton');
 const sendEmailButton = document.getElementById('sendEmailButton');
 const saveFormDataButton = document.getElementById('saveFormDataButton');
 const savedFormsContainer = document.getElementById('savedFormsContainer');
-
+const applicationsContainer = document.getElementById('applicationsContainer');
 
 document.addEventListener("DOMContentLoaded", () => {
     loadProfiles();
@@ -35,17 +35,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     saveFormDataButton.addEventListener('click', saveCurrentFormData);
 
-    loadSavedForms();
+ 
+    loadApplications();
 });
 
 
 function loadProfiles() {
-    
     chrome.storage.local.get(["profiles", "activeProfile"], (data) => {
         const profiles = data.profiles || {};
         const activeProfile = data.activeProfile || null;
 
-        
         profileSelector.innerHTML = "";
         for (const profileName of Object.keys(profiles)) {
             const option = document.createElement("option");
@@ -57,14 +56,16 @@ function loadProfiles() {
             profileSelector.appendChild(option);
         }
 
-        // Loading custom fields for the active profile
         if (activeProfile && profiles[activeProfile]) {
             loadCustomFields(profiles[activeProfile]);
+            loadSavedForms();
         } else {
             customFieldsContainer.innerHTML = ""; 
+            savedFormsContainer.innerHTML = "";
         }
     });
 }
+
 function saveFieldMappings() {
     const selects = mappingContainer.querySelectorAll('select');
     const mappings = {};
@@ -107,21 +108,40 @@ function deleteSavedForm(formName) {
         return;
     }
 
-    chrome.storage.local.get('savedForms', (data) => {
-        const savedForms = data.savedForms || {};
-        delete savedForms[formName];
-        chrome.storage.local.set({ savedForms }, () => {
-            alert("Saved form deleted.");
-            loadSavedForms();
-        });
+    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+        const profiles = data.profiles || {};
+        const activeProfile = data.activeProfile;
+        if (!activeProfile || !profiles[activeProfile]) {
+            alert("No active profile selected.");
+            return;
+        }
+
+        const profile = profiles[activeProfile];
+        if (profile.savedForms && profile.savedForms[formName]) {
+            delete profile.savedForms[formName];
+            profiles[activeProfile] = profile;
+            chrome.storage.local.set({ profiles }, () => {
+                alert("Saved form deleted.");
+                loadSavedForms(); 
+            });
+        }
     });
 }
+
 
 function loadSavedForms() {
     savedFormsContainer.innerHTML = ''; 
 
-    chrome.storage.local.get('savedForms', (data) => {
-        const savedForms = data.savedForms || {};
+    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+        const profiles = data.profiles || {};
+        const activeProfile = data.activeProfile;
+        if (!activeProfile || !profiles[activeProfile]) {
+            savedFormsContainer.textContent = "No active profile or saved forms.";
+            return;
+        }
+
+        const profile = profiles[activeProfile];
+        const savedForms = profile.savedForms || {};
 
         if (Object.keys(savedForms).length === 0) {
             savedFormsContainer.textContent = "No saved forms.";
@@ -157,6 +177,7 @@ function loadSavedForms() {
     });
 }
 
+
 function saveCurrentFormData() {
     const formName = prompt("Enter a name for this form data:");
     if (!formName) {
@@ -175,10 +196,20 @@ function saveCurrentFormData() {
 
                 if (response && response.status === 'success') {
                     const formData = response.data;
-                    chrome.storage.local.get('savedForms', (data) => {
-                        const savedForms = data.savedForms || {};
-                        savedForms[formName] = formData;
-                        chrome.storage.local.set({ savedForms }, () => {
+                    chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+                        const profiles = data.profiles || {};
+                        const activeProfile = data.activeProfile;
+                        if (!activeProfile) {
+                            alert("No active profile selected.");
+                            return;
+                        }
+                        const profile = profiles[activeProfile] || {};
+
+                        profile.savedForms = profile.savedForms || {};
+                        profile.savedForms[formName] = formData;
+
+                        profiles[activeProfile] = profile;
+                        chrome.storage.local.set({ profiles }, () => {
                             alert("Form data saved successfully!");
                             loadSavedForms(); 
                         });
@@ -190,6 +221,7 @@ function saveCurrentFormData() {
         });
     });
 }
+
 
 function initiateFieldMapping(autoMode) {
     injectContentScript(() => {
@@ -246,11 +278,11 @@ function displayMappingInterface(formFields, autoMode = false) {
             div.className = 'mapping-item';
 
             const label = document.createElement('label');
-            const fieldLabel = field.label || field.name || 'Unknown';
+            const fieldLabel = field.name || field.id || field.label || field.placeholder || field.ariaLabel || field.surroundingText || 'Unknown';
             label.textContent = `Form Field: ${fieldLabel}`;
 
             const select = document.createElement('select');
-            const uniqueKey = field.name ||field.label ;
+            const uniqueKey = field.name || field.id || field.label || field.placeholder || field.ariaLabel || field.surroundingText ;
             select.name = uniqueKey;
 
             const defaultOption = document.createElement('option');
@@ -301,7 +333,7 @@ function injectAutofillScript() {
 function loadCustomFields(fields) {
   customFieldsContainer.innerHTML = "";
   for (const [name, value] of Object.entries(fields)) {
-     if (name === "Name" || name === "Surname" || name === "Summary") continue;
+     if (name === "Name" || name === "Surname" || name === "Summary" || name === 'savedForms') continue;
 
       displayField(name, value);
   }
@@ -335,6 +367,82 @@ function displayField(name, value) {
 }
 
 
+function loadApplications() {
+    applicationsContainer.innerHTML = '';
+
+    chrome.storage.local.get('jobApplications', (data) => {
+        const jobApplications = data.jobApplications || [];
+
+        if (jobApplications.length === 0) {
+            applicationsContainer.textContent = "No job applications tracked.";
+            return;
+        }
+
+        jobApplications.forEach((application, index) => {
+            const appDiv = document.createElement('div');
+            appDiv.className = 'application-item';
+
+            appDiv.innerHTML = `
+                <strong>${application.company}</strong> - ${application.jobTitle}<br>
+                Date Applied: ${application.dateApplied}<br>
+                Status: ${application.status}
+            `;
+
+            const statusSelect = document.createElement('select');
+            ['Applied', 'Interviewing', 'Offered', 'Rejected', 'Accepted'].forEach(statusOption => {
+                const option = document.createElement('option');
+                option.value = statusOption;
+                option.textContent = statusOption;
+                if (application.status === statusOption) {
+                    option.selected = true;
+                }
+                statusSelect.appendChild(option);
+            });
+            statusSelect.addEventListener('change', () => {
+                updateApplicationStatus(index, statusSelect.value);
+            });
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.addEventListener('click', () => {
+                deleteApplication(index);
+            });
+
+            appDiv.appendChild(statusSelect);
+            appDiv.appendChild(deleteButton);
+            applicationsContainer.appendChild(appDiv);
+        });
+    });
+}
+
+function updateApplicationStatus(index, newStatus) {
+    chrome.storage.local.get('jobApplications', (data) => {
+        const jobApplications = data.jobApplications || [];
+        if (jobApplications[index]) {
+            jobApplications[index].status = newStatus;
+            chrome.storage.local.set({ jobApplications }, () => {
+                alert("Application status updated.");
+                loadApplications();
+            });
+        }
+    });
+}
+
+function deleteApplication(index) {
+    if (!confirm("Are you sure you want to delete this application?")) {
+        return;
+    }
+    chrome.storage.local.get('jobApplications', (data) => {
+        const jobApplications = data.jobApplications || [];
+        if (jobApplications[index]) {
+            jobApplications.splice(index, 1);
+            chrome.storage.local.set({ jobApplications }, () => {
+                alert("Application deleted.");
+                loadApplications();
+            });
+        }
+    });
+}
 
 // Creating new profile
 createProfileButton.addEventListener("click", () => {
@@ -569,6 +677,7 @@ function autoMapFields(formFields, profileFields) {
         'summary': ['about', 'bio', 'biography'],
         'job title': ['position', 'title'],
         'age': ['birthday', 'birth date', 'date of birth'],
+        'email':['email', 'e-mail', 'mail']
         
     };
 
@@ -620,10 +729,12 @@ profileSelector.addEventListener("change", () => {
     const selectedProfile = profileSelector.value;
     chrome.storage.local.get("profiles", (data) => {
         const profiles = data.profiles || {};
-        const activeProfileFields = profiles[selectedProfile] || {};
+        const profile = profiles[selectedProfile] || {};
 
         chrome.storage.local.set({ activeProfile: selectedProfile }, () => {
-            loadCustomFields(activeProfileFields);
+            loadCustomFields(profile);
+            loadSavedForms();
         });
     });
 });
+
