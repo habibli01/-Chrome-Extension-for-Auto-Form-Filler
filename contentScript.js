@@ -1,6 +1,5 @@
 (function() {
     if (window.hasRunContentScript) {
-        console.log("contentScript.js already ran.");
         return;
     }
     window.hasRunContentScript = true;
@@ -63,8 +62,6 @@
 
     const fieldArray = Array.from(fields.values());
 
-    console.log('Collected form fields:', fieldArray);
-
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.action === 'collectFormData') {
             const formData = collectCurrentFormData();
@@ -91,15 +88,15 @@
     }
 
     function restoreFormFields(formData) {
-        for (const [key, value] of Object.entries(formData)) {
-            const input = document.querySelector(`[name="${key}"], [id="${key}"]`);
-            if (input) {
-                input.value = value;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
+        const formElements = document.querySelectorAll('input, select, textarea');
+    
+        formElements.forEach((element) => {
+            if (element.name && formData[element.name] !== undefined) {
+                element.value = formData[element.name];
             }
-        }
+        });
     }
+    
 
     chrome.runtime.sendMessage({ action: 'formFieldsData', fields: fieldArray });
 

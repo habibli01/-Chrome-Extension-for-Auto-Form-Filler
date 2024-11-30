@@ -21,25 +21,93 @@ const sendEmailButton = document.getElementById('sendEmailButton');
 const saveFormDataButton = document.getElementById('saveFormDataButton');
 const savedFormsContainer = document.getElementById('savedFormsContainer');
 const applicationsContainer = document.getElementById('applicationsContainer');
+const generateCoverLetterButton = document.getElementById('generateCoverLetterButton');
+const coverLetterDisplay = document.getElementById('coverLetterDisplay');
 
 document.addEventListener("DOMContentLoaded", () => {
     loadProfiles();
-    mapFieldsButton.addEventListener('click', () => {
-        const autoModeCheckbox = document.getElementById('autoModeCheckbox');
-        const autoMode = autoModeCheckbox.checked;
-        initiateFieldMapping(autoMode);
-    });
-    saveMappingButton.addEventListener('click', saveFieldMappings);
-    autofillButton.addEventListener('click', injectAutofillScript);
-    sendEmailButton.addEventListener('click', sendDataViaEmail);
-
-    saveFormDataButton.addEventListener('click', saveCurrentFormData);
-
- 
+    
+    
     loadApplications();
 });
 
+mapFieldsButton.addEventListener('click', () => {
+    const autoModeCheckbox = document.getElementById('autoModeCheckbox');
+    const autoMode = autoModeCheckbox.checked;
+    initiateFieldMapping(autoMode);
+});
+saveMappingButton.addEventListener('click', saveFieldMappings);
+autofillButton.addEventListener('click', injectAutofillScript);
+sendEmailButton.addEventListener('click', sendDataViaEmail);
+saveFormDataButton.addEventListener('click', saveCurrentFormData);    
+generateCoverLetterButton.addEventListener('click', generateCoverLetter);
 
+function generateCoverLetter() {
+    injectContentScript(() => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const activeTab = tabs[0];
+
+            chrome.tabs.sendMessage(
+                activeTab.id,
+                { action: 'extractJobData' },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Error extracting job data:', chrome.runtime.lastError.message);
+                        alert("Failed to extract job data.");
+                        return;
+                    }
+
+                    if (response && response.status === 'success') {
+                        const jobApplication = response.data;
+
+                        chrome.storage.local.get(['profiles', 'activeProfile'], (data) => {
+                            const profiles = data.profiles || {};
+                            const activeProfile = data.activeProfile;
+                            const profile = profiles[activeProfile] || {};
+
+                            chrome.runtime.sendMessage(
+                                { action: 'generateCoverLetter', data: { jobApplication, profile } },
+                                (response) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.error('Error generating cover letter:', chrome.runtime.lastError.message);
+                                        alert('Failed to generate cover letter.');
+                                        return;
+                                    }
+
+                                    if (response && response.status === 'success') {
+                                        const coverLetter = response.coverLetter;
+                                        displayGeneratedCoverLetter(coverLetter);
+                                    } else {
+                                        alert('Failed to generate cover letter.');
+                                    }
+                                }
+                            );
+                        });
+
+                    } else {
+                        alert("Failed to extract job data. Please make sure you're on a job posting page.");
+                     
+                    }
+                }
+            );
+        });
+    });
+}
+
+function displayGeneratedCoverLetter(coverLetter) {
+    coverLetterDisplay.innerHTML = '';
+
+    if (coverLetter) {
+        const textarea = document.createElement('textarea');
+        textarea.value = coverLetter;
+        textarea.rows = 15;
+        textarea.cols = 50;
+
+        coverLetterDisplay.appendChild(textarea);
+    } else {
+        coverLetterDisplay.textContent = 'No cover letter generated.';
+    }
+}
 function loadProfiles() {
     chrome.storage.local.get(["profiles", "activeProfile"], (data) => {
         const profiles = data.profiles || {};
@@ -232,22 +300,29 @@ function initiateFieldMapping(autoMode) {
 function injectContentScript(callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const activeTab = tabs[0];
-        chrome.scripting.executeScript(
-            {
-                target: { tabId: activeTab.id },
-                files: ['contentScript.js']
-            },
-            () => {
-                if (chrome.runtime.lastError) {
-                    console.error(chrome.runtime.lastError.message);
-                    alert('Failed to inject content script.');
-                } else {
-                   callback();
+
+        if (activeTab.url.startsWith('file://') || activeTab.url.startsWith('https://')) {
+            chrome.scripting.executeScript(
+                {
+                    target: { tabId: activeTab.id },
+                    files: ['formListener.js', 'contentScript.js']
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Failed to inject form listener:', chrome.runtime.lastError.message);
+                        alert('Failed to inject content script.');
+                    } else {
+                        if (callback) callback();
+                    }
                 }
-            }
-        );
+            );
+        } else {
+            alert('Cannot inject script into this page. Please navigate to a valid job posting page.');
+            console.error('Cannot inject script into URL:', activeTab.url);
+        }
     });
 }
+
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'formFieldsData') {
@@ -387,6 +462,11 @@ function loadApplications() {
                 Date Applied: ${application.dateApplied}<br>
                 Status: ${application.status}
             `;
+            const viewCoverLetterButton = document.createElement('button');
+            viewCoverLetterButton.textContent = 'View Cover Letter';
+            viewCoverLetterButton.addEventListener('click', () => {
+                displayCoverLetter(application.coverLetter);
+            });
 
             const statusSelect = document.createElement('select');
             ['Applied', 'Interviewing', 'Offered', 'Rejected', 'Accepted'].forEach(statusOption => {
@@ -407,7 +487,7 @@ function loadApplications() {
             deleteButton.addEventListener('click', () => {
                 deleteApplication(index);
             });
-
+            appDiv.appendChild(viewCoverLetterButton);
             appDiv.appendChild(statusSelect);
             appDiv.appendChild(deleteButton);
             applicationsContainer.appendChild(appDiv);
@@ -629,6 +709,21 @@ function sendDataViaEmail() {
 
         window.open(mailtoLink, '_blank');
     });
+}
+function displayCoverLetter(coverLetter) {
+    const coverLetterContainer = document.getElementById('coverLetterContainer');
+    coverLetterContainer.innerHTML = '';
+
+    if (coverLetter) {
+        const textarea = document.createElement('textarea');
+        textarea.value = coverLetter;
+        textarea.rows = 15;
+        textarea.cols = 50;
+
+        coverLetterContainer.appendChild(textarea);
+    } else {
+        coverLetterContainer.textContent = 'No cover letter available for this application.';
+    }
 }
 // Fetching LinkedIn data
 fetchDataButton.addEventListener("click", () => {

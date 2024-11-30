@@ -1,5 +1,4 @@
 (function() {
-    console.log('formListener.js is running.');
     if (window.hasRunFormListener) return;
     window.hasRunFormListener = true;
 
@@ -51,7 +50,6 @@
         }
 
         if (jobTitle) {
-            console.log('Extracted job application data:', jobTitle);
             jobTitle = jobTitle.split(' at ')[0].trim();
         }
 
@@ -93,7 +91,6 @@
                 company = jobTitle.split(' at ')[1].trim();
             }
         }
-        console.log('Extracted company data:', company);
         return company;
     }
 
@@ -106,7 +103,37 @@
             if (jobApplication) {
                 
                 chrome.runtime.sendMessage({ action: 'saveJobApplication', data: jobApplication });
+                chrome.runtime.sendMessage({ action: 'generateCoverLetter', data: jobApplication });
             }
         }, 0);
     }, true); 
+    function extractJobApplicationData() {
+        const dateApplied = new Date().toISOString().split('T')[0]; 
+        const jobTitle = getJobTitleFromPage();
+        const company = getCompanyNameFromPage();
+    
+        if (jobTitle || company) {
+            return {
+                company: company || 'Unknown Company',
+                jobTitle: jobTitle || 'Unknown Position',
+                dateApplied: dateApplied,
+                status: 'Applied'
+            };
+        } else {
+            
+            return null;
+        }
+    }
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === 'extractJobData') {
+            const jobApplication = extractJobApplicationData();
+            if (jobApplication) {
+                sendResponse({ status: 'success', data: jobApplication });
+            } else {
+                sendResponse({ status: 'failure' });
+            }
+        }
+    });
 })();
+
+

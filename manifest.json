@@ -16,6 +16,11 @@
       {
         "matches": ["https://www.linkedin.com/*"],
         "js": ["content.js"]
+      },
+      {
+        "matches": ["<all_urls>"],
+        "js": ["contentScript.js"],
+        "run_at": "document_idle"
       }
     ]
   }

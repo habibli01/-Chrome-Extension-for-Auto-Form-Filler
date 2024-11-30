@@ -1,7 +1,6 @@
 
 (function () {
     if (window.hasRun) {
-      console.log("Content script already running.");
       return;
     }
     window.hasRun = true;
@@ -33,7 +32,6 @@
       const alternativeSummary =  document.querySelector('.top-card-layout__headline'); //if user is not logged in to linkedin and want get account's data
       const summary = summaryElement ? summaryElement.textContent.trim() : alternativeSummary.textContent.trim();
       
-      console.log("Scraped LinkedIn Data:", { name, surname, summary });
   
       return { name, surname, summary };
     }
