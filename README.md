@@ -103,3 +103,6 @@ Chrome extension for easy form-filling with many features
 1. **Joan Ayebola. (2023, November 3). How to Call an API in JavaScript – with Examples. https://www.freecodecamp.org/news/make-api-calls-in-javascript/**
 
 2. **Google.  Gemini API [Large language model]. https://cloud.google.com/products/gemini?hl=en**
+
+3. **OpenAI. (2023, October 23). ChatGPT (Sep 25, 2023 version) [Large language model].**
+**https://chat.openai.com/chat**
